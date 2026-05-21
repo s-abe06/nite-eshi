@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ニセ絵師を探せ</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700;900&display=swap');
+  :root{--bg:#1a1a2e;--surface:#16213e;--card:#0f3460;--accent:#e94560;--accent2:#f5a623;--text:#eaeaea;--text-sub:#a0a8c0;--radius:16px;--shadow:0 8px 32px rgba(0,0,0,0.4);}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Zen Maru Gothic',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;}
+  header{width:100%;padding:16px 24px;background:var(--surface);border-bottom:2px solid var(--accent);display:flex;align-items:center;gap:12px;}
+  header h1{font-size:1.1rem;font-weight:900;color:var(--accent);}
+  .round-badge{margin-left:auto;background:var(--accent);color:#fff;font-size:0.75rem;font-weight:700;padding:4px 12px;border-radius:20px;display:none;}
+  main{width:100%;max-width:900px;padding:20px 16px;flex:1;}
+  .card{background:var(--surface);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);margin-bottom:16px;border:1px solid rgba(255,255,255,0.06);}
+  .card h2{font-size:1.05rem;font-weight:700;color:var(--accent2);margin-bottom:14px;}
+  .btn{display:inline-block;padding:12px 24px;border-radius:12px;border:none;font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer;transition:transform 0.1s,opacity 0.2s;}
+  .btn:active{transform:scale(0.97);}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;}
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-secondary{background:var(--card);color:var(--text);}
+  .btn-warning{background:var(--accent2);color:#fff;}
+  input[type="text"]{width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:var(--card);color:var(--text);font-family:inherit;font-size:1rem;outline:none;transition:border-color 0.2s;}
+  input[type="text"]:focus{border-color:var(--accent);}
+  .player-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:24px;background:var(--card);font-size:0.9rem;font-weight:700;margin:4px;}
+  .dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+  .theme-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(245,166,35,0.15);border:2px solid var(--accent2);color:var(--accent2);padding:8px 16px;border-radius:12px;font-size:1rem;font-weight:900;margin-bottom:10px;}
+  .topic-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(233,69,96,0.15);border:2px solid var(--accent);color:var(--accent);padding:8px 16px;border-radius:12px;font-size:1.3rem;font-weight:900;}
+  .fake-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(155,89,182,0.15);border:2px solid #9b59b6;color:#9b59b6;padding:8px 16px;border-radius:12px;font-size:1rem;font-weight:900;}
+  #canvas-wrapper{position:relative;width:100%;aspect-ratio:4/3;background:#fff;border-radius:12px;overflow:hidden;cursor:crosshair;box-shadow:0 4px 24px rgba(0,0,0,0.5);touch-action:none;}
+  #canvas-wrapper canvas{position:absolute;top:0;left:0;width:100%;height:100%;}
+  .turn-info{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;background:var(--card);margin-bottom:10px;font-weight:700;}
+  .draw-counts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+  .dci{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;background:var(--card);font-size:0.8rem;}
+  .pip{width:8px;height:8px;border-radius:50%;border:2px solid rgba(255,255,255,0.3);}
+  .vote-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:12px;}
+  .vote-btn{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px;border-radius:14px;border:2px solid rgba(255,255,255,0.1);background:var(--card);color:var(--text);font-family:inherit;font-size:0.9rem;font-weight:700;cursor:pointer;transition:border-color 0.2s,transform 0.1s;}
+  .vote-btn:hover{border-color:var(--accent);transform:translateY(-2px);}
+  .vote-btn.selected{border-color:var(--accent);background:rgba(233,69,96,0.15);}
+  .vote-dot{width:28px;height:28px;border-radius:50%;}
+  .result-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:10px;background:var(--card);margin-bottom:8px;}
+  .vote-bar{height:8px;border-radius:4px;min-width:4px;}
+  .score-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:var(--card);margin-bottom:6px;}
+  .waiting{color:var(--text-sub);font-size:0.9rem;padding:12px;text-align:center;}
+  .label{font-size:0.75rem;color:var(--text-sub);font-weight:700;letter-spacing:0.05em;margin-bottom:6px;}
+  .join-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:18px;}
+  .join-form{width:100%;max-width:380px;display:flex;flex-direction:column;gap:10px;}
+  #role-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:200;align-items:center;justify-content:center;flex-direction:column;gap:20px;text-align:center;padding:24px;}
+  #role-overlay.show{display:flex;}
+  .role-card{background:var(--surface);border-radius:20px;padding:28px 36px;box-shadow:var(--shadow);border:2px solid rgba(255,255,255,0.1);max-width:340px;width:100%;}
+  .color-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .cli{display:flex;align-items:center;gap:8px;padding:5px 12px;background:var(--card);border-radius:20px;font-size:0.82rem;font-weight:700;}
+  #toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.8);opacity:0;background:rgba(15,52,96,0.97);color:var(--text);padding:20px 36px;border-radius:20px;font-weight:900;font-size:1.2rem;box-shadow:var(--shadow);transition:transform 0.25s,opacity 0.25s;z-index:300;white-space:nowrap;border:2px solid var(--accent);pointer-events:none;text-align:center;}
+  #toast.show{transform:translate(-50%,-50%) scale(1);opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎨 ニセ絵師を探せ</h1>
+  <span id="round-badge" class="round-badge"></span>
+</header>
+<div id="role-overlay">
+  <h2 style="color:var(--accent2);font-weight:900;">あなたの役割</h2>
+  <div class="role-card" id="role-card-content"></div>
+  <button class="btn btn-primary" onclick="closeRoleOverlay()">確認しました！</button>
+</div>
+<main id="app">
+  <div class="join-wrap">
+    <div style="font-size:3rem">🎨</div>
+    <h2 style="font-size:1.6rem;font-weight:900;color:var(--accent)">ニセ絵師を探せ</h2>
+    <p style="color:var(--text-sub);text-align:center">みんなで一筆ずつ絵を描いて<br>エセを見つけ出せ！</p>
+    <div class="join-form">
+      <div class="label">あなたの名前</div>
+      <input type="text" id="name-input" placeholder="名前を入力" maxlength="12">
+      <button class="btn btn-primary" id="join-btn" onclick="joinGame()">入室する</button>
+    </div>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, update, get, push, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const app = initializeApp({ databaseURL: "https://fake-artist-d81b1-default-rtdb.firebaseio.com" });
+const db = getDatabase(app);
+const ROOM = "room1";
+const HEARTBEAT_INTERVAL = 30 * 1000;      // 30秒ごとに送信
+const LOBBY_TIMEOUT    = 60 * 60 * 1000;  // ロビー：1時間で退出
+const GAME_TIMEOUT     = 90 * 1000;       // ゲーム中：90秒で離席扱い
+let heartbeatTimer = null;
+let lastNotifiedTurnIndex = -1; // ターン通知の重複防止
+
+const TOPICS = {
+  "動物":["ライオン","ゾウ","キリン","ペンギン","コアラ","パンダ","シマウマ","カバ","フラミンゴ","タコ","クジラ","イルカ","カメレオン","ハリネズミ","ナマケモノ"],
+  "食べ物":["ラーメン","ピザ","寿司","タコス","パンケーキ","アイスクリーム","たこ焼き","カレー","ハンバーガー","おにぎり","クレープ","餃子","プリン","パスタ","チョコレート"],
+  "乗り物":["新幹線","ヘリコプター","ヨット","ロケット","消防車","潜水艦","トラクター","ケーブルカー","熱気球","スペースシャトル","リムジン","自転車","パトカー","フォークリフト","モノレール"],
+  "スポーツ":["サッカー","バスケットボール","テニス","水泳","柔道","スキー","ボクシング","バレーボール","卓球","ゴルフ","アーチェリー","フェンシング","スケートボード","ラグビー","野球"],
+  "建物・場所":["城","灯台","図書館","水族館","観覧車","神社","病院","スタジアム","温泉","プラネタリウム","駅","空港","遊園地","博物館","ピラミッド"],
+  "自然・天気":["虹","雷","台風","オーロラ","火山","滝","砂漠","氷河","珊瑚礁","洞窟","竜巻","霧","吹雪","干ばつ","流れ星"],
+  "道具・家電":["掃除機","電子レンジ","扇風機","アイロン","炊飯器","ドライヤー","冷蔵庫","洗濯機","電話","テレビ","ミシン","湯たんぽ","目覚まし時計","電卓","カメラ"],
+  "職業":["医者","消防士","料理人","パイロット","宇宙飛行士","忍者","魔法使い","探偵","農家","漁師","音楽家","画家","大工","警察官","美容師"],
+  "海の生き物":["クラゲ","ウツボ","ナマコ","シャチ","マンタ","ヒトデ","アンコウ","タツノオトシゴ","ウミガメ","ヤドカリ","ウニ","カニ","ロブスター","クリオネ","シロナガスクジラ"],
+  "昆虫・小動物":["カブトムシ","ホタル","カマキリ","アリ","ミツバチ","チョウ","バッタ","テントウムシ","ムカデ","クモ","リス","モグラ","カエル","ヤモリ","イモリ"],
+  "ファンタジー":["ドラゴン","ユニコーン","人魚","天使","悪魔","ゾンビ","エルフ","ドワーフ","フェニックス","ゴブリン","スライム","狼男","吸血鬼","巨人","ケンタウロス"],
+  "日用品":["歯ブラシ","傘","リュック","水筒","メガネ","ハサミ","財布","鉛筆","定規","消しゴム","ホッチキス","クリップ","ポスト","南京錠","コンパス"],
+};
+const COLORS = ["#E74C3C","#3498DB","#2ECC71","#F39C12","#9B59B6","#1ABC9C","#E67E22","#E91E90","#00BCD4","#8BC34A"];
+
+// ===== ローカル状態 =====
+let playerId = localStorage.getItem("fa_pid") || ("p_" + Math.random().toString(36).slice(2,10));
+localStorage.setItem("fa_pid", playerId);
+let playerName = "";
+let gameState = null;
+let myVote = null;
+let isDrawing = false;
+let localPoints = []; // ローカルで描画中の点
+let roleShown = false;
+let mainCanvas = null;
+let ctx = null;
+let listening = false;
+
+// ===== Firebaseヘルパー =====
+
+// Firebase のオブジェクト→配列変換
+function toArr(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  return Object.values(val);
+}
+
+// Firebaseから取得した生データを正規化
+function normalize(val) {
+  const s = val || {};
+  return {
+    phase:            s.phase || "lobby",
+    round:            s.round || 0,
+    players:          toArr(s.players),
+    roles:            s.roles || {},
+    theme:            s.theme || "",
+    topic:            s.topic || "",
+    drawOrder:        toArr(s.drawOrder),
+    currentTurnIndex: s.currentTurnIndex || 0,
+    turnCounts:       s.turnCounts || {},
+    strokes:          toArr(s.strokes),
+    votes:            s.votes || {},
+    voteResult:       s.voteResult || null,
+    fakeGuess:        s.fakeGuess !== undefined ? s.fakeGuess : null,
+    fakeGuessCorrect: s.fakeGuessCorrect !== undefined ? s.fakeGuessCorrect : null,
+    judgeId:          s.judgeId || null,
+    away:             s.away || {},
+    settings: {
+      awayTimeout:  s.settings?.awayTimeout  !== undefined ? s.settings.awayTimeout  : true,
+      drawCount:    s.settings?.drawCount    || 0,       // 0=自動（人数による）
+      turnTime:     s.settings?.turnTime     || 0,       // 0=制限なし（秒）
+      totalRounds:  s.settings?.totalRounds  || 0,       // 0=無制限
+      categories:   s.settings?.categories   || [],      // []＝全カテゴリ
+      fakeCount:    s.settings?.fakeCount    || 1,       // ニセの人数
+    },
+  };
+}
+
+async function fbGet() {
+  const snap = await get(ref(db, `${ROOM}/state`));
+  return normalize(snap.val());
+}
+
+async function fbSet(s) {
+  await set(ref(db, `${ROOM}/state`), s);
+}
+
+async function fbUpdate(u) {
+  await update(ref(db, `${ROOM}/state`), u);
+}
+
+// プレイヤーをpushで追加（配列問題を根本回避）
+async function fbAddPlayer(player) {
+  await push(ref(db, `${ROOM}/state/players`), player);
+}
+
+// ストロークをpushで追加
+async function fbAddStroke(stroke) {
+  await push(ref(db, `${ROOM}/state/strokes`), stroke);
+}
+
+function startListening() {
+  if (listening) return;
+  listening = true;
+  onValue(ref(db, `${ROOM}/state`), snap => {
+    const prev = gameState ? gameState.phase : null;
+    gameState = normalize(snap.val());
+    if (prev !== "drawing" && gameState.phase === "drawing") {
+      roleShown = false;
+      setTimeout(showRoleOverlay, 400);
+    }
+    const b = document.getElementById("round-badge");
+    if (b) { b.style.display = gameState.round > 0 ? "inline" : "none"; b.textContent = `ラウンド ${gameState.round}`; }
+    renderApp();
+  });
+}
+
+// ===== 設定UI =====
+const ALL_CATS = ["動物","食べ物","乗り物","スポーツ","建物・場所","自然・天気","道具・家電","職業","海の生き物","昆虫・小動物","ファンタジー","日用品"];
+
+function renderSettings(s) {
+  const cats = s.categories && s.categories.length > 0 ? s.categories : [];
+  return `
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div>
+        <div class="label">🕒 離席タイムアウト（90秒）</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ${s.awayTimeout?"btn-primary":"btn-secondary"}" onclick="doSetting('awayTimeout',true)">ON</button>
+          <button class="btn ${!s.awayTimeout?"btn-primary":"btn-secondary"}" onclick="doSetting('awayTimeout',false)">OFF</button>
+        </div>
+      </div>
+      <div>
+        <div class="label">✏️ 1人あたりの描画回数</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ${s.drawCount===0?"btn-primary":"btn-secondary"}" onclick="doSetting('drawCount',0)">自動</button>
+          ${[1,2,3,4].map(n=>`<button class="btn ${s.drawCount===n?"btn-primary":"btn-secondary"}" onclick="doSetting('drawCount',${n})">${n}回</button>`).join("")}
+        </div>
+        <div style="color:var(--text-sub);font-size:0.78rem;margin-top:4px">自動：4人以下→3回、5人以上→2回</div>
+      </div>
+      <div>
+        <div class="label">⏱ 1ターンの時間制限</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ${s.turnTime===0?"btn-primary":"btn-secondary"}" onclick="doSetting('turnTime',0)">なし</button>
+          ${[15,30,45,60].map(n=>`<button class="btn ${s.turnTime===n?"btn-primary":"btn-secondary"}" onclick="doSetting('turnTime',${n})">${n}秒</button>`).join("")}
+        </div>
+      </div>
+      <div>
+        <div class="label">🔁 総ラウンド数</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ${s.totalRounds===0?"btn-primary":"btn-secondary"}" onclick="doSetting('totalRounds',0)">無制限</button>
+          ${[3,5,7,10].map(n=>`<button class="btn ${s.totalRounds===n?"btn-primary":"btn-secondary"}" onclick="doSetting('totalRounds',${n})">${n}R</button>`).join("")}
+        </div>
+      </div>
+      <div>
+        <div class="label">🕵️ ニセ絵師の人数</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${[1,2].map(n=>`<button class="btn ${s.fakeCount===n?"btn-primary":"btn-secondary"}" onclick="doSetting('fakeCount',${n})">${n}人</button>`).join("")}
+        </div>
+      </div>
+      <div>
+        <div class="label">📂 使用カテゴリ（未選択＝全て使用）</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${ALL_CATS.map(c=>`
+            <button class="btn" style="padding:6px 12px;font-size:0.82rem;${cats.includes(c)?"background:var(--accent);color:#fff":"background:var(--card);color:var(--text)"}" onclick="doToggleCategory('${c}')">
+              ${c}
+            </button>`).join("")}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderSettingsReadonly(s) {
+  const cats = s.categories && s.categories.length > 0 ? s.categories.join("・") : "全カテゴリ";
+  return `
+    <div style="display:flex;flex-direction:column;gap:8px;font-size:0.9rem;color:var(--text-sub)">
+      <div>🕒 離席タイムアウト：<b style="color:var(--text)">${s.awayTimeout?"ON":"OFF"}</b></div>
+      <div>✏️ 描画回数：<b style="color:var(--text)">${s.drawCount===0?"自動":s.drawCount+"回"}</b></div>
+      <div>⏱ 時間制限：<b style="color:var(--text)">${s.turnTime===0?"なし":s.turnTime+"秒"}</b></div>
+      <div>🔁 ラウンド数：<b style="color:var(--text)">${s.totalRounds===0?"無制限":s.totalRounds+"R"}</b></div>
+      <div>🕵️ ニセ絵師：<b style="color:var(--text)">${s.fakeCount}人</b></div>
+      <div>📂 カテゴリ：<b style="color:var(--text)">${cats}</b></div>
+    </div>`;
+}
+
+window.doSetting = async function(key, value) {
+  await update(ref(db, `${ROOM}/state/settings`), { [key]: value });
+};
+
+window.doToggleCategory = async function(cat) {
+  const state = await fbGet();
+  const cats = [...(state.settings.categories || [])];
+  const idx = cats.indexOf(cat);
+  if (idx >= 0) cats.splice(idx, 1);
+  else cats.push(cat);
+  await update(ref(db, `${ROOM}/state/settings`), { categories: cats.length > 0 ? cats : null });
+};
+
+// ===== ハートビート =====
+function startHeartbeat() {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  sendHeartbeat();
+  heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
+}
+
+async function sendHeartbeat() {
+  if (!playerName) return;
+  await update(ref(db, `${ROOM}/presence/${playerId}`), {
+    lastSeen: Date.now(),
+    name: playerName,
+  });
+}
+
+// ハートビートを監視して離席・退出を判定
+function startPresenceWatch() {
+  onValue(ref(db, `${ROOM}/presence`), async snap => {
+    const presence = snap.val() || {};
+    const now = Date.now();
+    const state = await fbGet();
+
+    for (const pid of Object.keys(presence)) {
+      const lastSeen = presence[pid].lastSeen || 0;
+      const elapsed = now - lastSeen;
+
+      if (state.phase === "lobby") {
+        // ロビー中：1時間で自動退出
+        if (elapsed > LOBBY_TIMEOUT) {
+          await removePlayer(pid);
+          await update(ref(db, `${ROOM}/presence`), { [pid]: null });
+        }
+      } else {
+        // ゲーム中：settings.awayTimeoutがONのとき90秒で離席マーク
+        if (state.settings.awayTimeout) {
+          const isAway = elapsed > GAME_TIMEOUT;
+          await update(ref(db, `${ROOM}/away`), { [pid]: isAway || null });
+        }
+      }
+    }
+  });
+}
+
+// プレイヤーをFirebaseから削除してホスト引き継ぎ
+async function removePlayer(pid) {
+  const state = await fbGet();
+  const players = state.players.filter(p => p.id !== pid);
+  if (players.length === 0) {
+    // 全員退出→リセット
+    await set(ref(db, `${ROOM}/state`), null);
+    return;
+  }
+  // playersをオブジェクト形式で保存
+  const playersObj = {};
+  players.forEach((p, i) => { playersObj[i] = p; });
+  await update(ref(db, `${ROOM}/state`), { players: playersObj });
+}
+
+// onDisconnect：ブラウザを閉じたとき自動でpresenceを削除
+async function setupDisconnect() {
+  const presRef = ref(db, `${ROOM}/presence/${playerId}`);
+  await onDisconnect(presRef).remove();
+}
+
+// ===== 入室 =====
+window.joinGame = async function() {
+  const input = document.getElementById("name-input");
+  const name = (input ? input.value : "").trim();
+  if (!name) { showToast("名前を入力してください"); return; }
+  const btn = document.getElementById("join-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "接続中…"; }
+  playerName = name;
+
+  startListening();
+
+  try {
+    const state = await fbGet();
+
+    // すでに参加済みならそのままロビーへ
+    const already = state.players.find(p => p.id === playerId);
+    if (already) { renderApp(); return; }
+
+    // lobby以外は入れない
+    if (state.phase !== "lobby") {
+      showToast("ゲームはすでに進行中です");
+      playerName = "";
+      if (btn) { btn.disabled = false; btn.textContent = "入室する"; }
+      return;
+    }
+
+    // 色をplayers数から決定（取得した時点の人数）
+    const colorIndex = state.players.length % COLORS.length;
+    const player = { id: playerId, name, color: COLORS[colorIndex], score: 0 };
+
+    // phaseが未設定なら先にlobbyとしてセット
+    if (!snap_has_phase) {
+      await fbUpdate({ phase: "lobby", round: 0 });
+    }
+
+    // pushで追加（既存playersを上書きしない）
+    await fbAddPlayer(player);
+    // onValueが発火してrenderAppが呼ばれる
+
+  } catch(e) {
+    console.error(e);
+    showToast("接続に失敗しました");
+    playerName = "";
+    if (btn) { btn.disabled = false; btn.textContent = "入室する"; }
+  }
+};
+
+// phaseが未設定かどうかをチェックする変数を削除し、シンプルに毎回phaseをセット
+// joinGameを修正版に置き換え
+window.joinGame = async function() {
+  const input = document.getElementById("name-input");
+  const name = (input ? input.value : "").trim();
+  if (!name) { showToast("名前を入力してください"); return; }
+  const btn = document.getElementById("join-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "接続中…"; }
+  playerName = name;
+
+  startListening();
+  startHeartbeat();
+  setupDisconnect();
+  startPresenceWatch();
+
+  try {
+    // 生データを取得（normalizeせずphaseの有無を確認）
+    const rawSnap = await get(ref(db, `${ROOM}/state`));
+    const raw = rawSnap.val() || {};
+    const state = normalize(raw);
+
+    // すでに参加済みならそのままロビーへ
+    const already = state.players.find(p => p.id === playerId);
+    if (already) { renderApp(); return; }
+
+    // lobby以外は入れない
+    if (state.phase && state.phase !== "lobby") {
+      showToast("ゲームはすでに進行中です");
+      playerName = "";
+      if (btn) { btn.disabled = false; btn.textContent = "入室する"; }
+      return;
+    }
+
+    // phaseが未設定なら初期値をセット（playersは上書きしない）
+    if (!raw.phase) {
+      await fbUpdate({ phase: "lobby", round: 0 });
+    }
+
+    // 色をplayers数から決定
+    const colorIndex = state.players.length % COLORS.length;
+    const player = { id: playerId, name, color: COLORS[colorIndex], score: 0 };
+
+    // pushで追加（既存playersを絶対に上書きしない）
+    await fbAddPlayer(player);
+
+  } catch(e) {
+    console.error(e);
+    showToast("接続に失敗しました");
+    playerName = "";
+    if (btn) { btn.disabled = false; btn.textContent = "入室する"; }
+  }
+};
+
+// ===== renderApp =====
+function renderApp() {
+  if (!playerName) return;
+  const app = document.getElementById("app");
+  if (!app || !gameState) return;
+  switch (gameState.phase) {
+    case "lobby":   renderLobby(app); break;
+    case "drawing": renderDrawing(app); break;
+    case "voting":  renderVoting(app); break;
+    case "result":  renderResult(app); break;
+    case "final":   renderFinal(app); break;
+    case "end":     renderEnd(app); break;
+    default:        renderLobby(app); break;
+  }
+}
+
+// ===== ロビー =====
+function renderLobby(app) {
+  const players = gameState.players;
+  const isHost = players.length > 0 && players[0].id === playerId;
+  const canStart = players.length >= 3;
+  app.innerHTML = `
+    <div class="card">
+      <h2>🏠 ロビー</h2>
+      <p style="color:var(--text-sub);margin-bottom:14px;font-size:0.9rem">3人以上集まったらゲームを開始できます</p>
+      <div class="label">参加中（${players.length}人）</div>
+      <div style="margin-bottom:18px;display:flex;flex-wrap:wrap">
+        ${players.map(p=>`<div class="player-chip"><div class="dot" style="background:${p.color}"></div>${esc(p.name)}${p.id===playerId?" <span style='color:var(--text-sub);font-size:0.75rem'>（あなた）</span>":""}</div>`).join("") || "<span style='color:var(--text-sub)'>まだ誰もいません</span>"}
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+        ${isHost ? `
+          <button class="btn btn-primary" ${canStart?"":"disabled"} onclick="doStartGame()">🎮 ゲーム開始${canStart?"":"（3人以上必要）"}</button>
+          ${gameState.round > 0 ? `<button class="btn btn-secondary" onclick="doEndGame()">🏁 ゲーム終了</button>` : ""}
+        ` : `<p class="waiting" style="padding:0">ホスト（${esc(players[0]?.name||"？")}）がゲームを開始するのを待っています…</p>`}
+        <button class="btn" style="background:rgba(255,255,255,0.08);color:var(--text-sub)" onclick="doLeave()">🚪 退出する</button>
+      </div>
+    </div>
+
+    ${isHost ? `
+    <div class="card">
+      <h2>⚙️ ルーム設定</h2>
+      ${renderSettings(gameState.settings)}
+    </div>` : `
+    <div class="card" style="opacity:0.7">
+      <h2>⚙️ ルーム設定（ホストのみ変更可）</h2>
+      ${renderSettingsReadonly(gameState.settings)}
+    </div>`}
+
+    ${gameState.round > 0 ? scoreCard() : ""}`;
+}
+
+// ===== ゲーム開始 =====
+window.doStartGame = async function() {
+  myVote = null;
+  lastNotifiedTurnIndex = -1; // ターン通知をリセット
+  const state = await fbGet();
+  if (state.players.length < 3) return;
+  const s = state.settings;
+
+  // カテゴリ選択
+  const useCats = (s.categories && s.categories.length > 0)
+    ? s.categories.filter(c => TOPICS[c])
+    : Object.keys(TOPICS);
+  const theme = useCats[Math.floor(Math.random()*useCats.length)];
+  const topic = TOPICS[theme][Math.floor(Math.random()*TOPICS[theme].length)];
+
+  // ニセ絵師を複数人対応でランダム選出
+  const fakeCount = Math.min(s.fakeCount || 1, state.players.length - 2);
+  const shuffledIdx = shuffle([...Array(state.players.length).keys()]);
+  const fakeIdxList = shuffledIdx.slice(0, fakeCount);
+  const roles = {};
+  state.players.forEach((p,i) => { roles[p.id] = fakeIdxList.includes(i) ? "fake" : "real"; });
+
+  // 判定者：ニセ以外からランダムに1人
+  const realPlayers = state.players.filter(p => roles[p.id] === "real");
+  const judgeId = realPlayers[Math.floor(Math.random()*realPlayers.length)].id;
+
+  const drawOrder = shuffle(state.players.map(p=>p.id));
+  const turnCounts = {};
+  state.players.forEach(p => { turnCounts[p.id] = 0; });
+
+  await fbUpdate({
+    phase: "drawing", theme, topic, roles, judgeId,
+    drawOrder, currentTurnIndex: 0, turnCounts,
+    strokes: null, votes: null, voteResult: null,
+    fakeGuess: null, fakeGuessCorrect: null,
+    round: (state.round || 0) + 1,
+    turnTimeLeft: s.turnTime || 0,
+  });
+};
+
+// ===== 描画フェーズ =====
+function renderDrawing(app) {
+  const me = gameState.players.find(p=>p.id===playerId);
+  if (!me) { app.innerHTML=`<p class="waiting">観戦中…</p>`; return; }
+  const currentId = gameState.drawOrder[gameState.currentTurnIndex];
+  const isMyTurn = currentId === playerId;
+  const cur = gameState.players.find(p=>p.id===currentId);
+  // 自分のターンになったとき1回だけ通知
+  if (isMyTurn && gameState.currentTurnIndex !== lastNotifiedTurnIndex) {
+    lastNotifiedTurnIndex = gameState.currentTurnIndex;
+    showToast("🖊 あなたのターンです！");
+  }
+  app.innerHTML = `
+    <div style="margin-bottom:10px">
+      <div class="theme-badge">📂 テーマ：${esc(gameState.theme)}</div><br>
+      ${gameState.roles[playerId]==="real"
+        ? `<div class="topic-badge">🖌 お題：${esc(gameState.topic)}</div>`
+        : `<div class="fake-badge">🕵️ お題：✗（わかりません）</div>`}
+    </div>
+    <div class="turn-info">
+      <div class="dot" style="background:${cur?.color||"#fff"};width:16px;height:16px"></div>
+      <span>${isMyTurn ? "🖊 あなたのターン！一筆描いてください" : `${esc(cur?.name||"？")} が描いています…`}</span>
+    </div>
+    <div class="draw-counts">
+      ${gameState.players.map(p=>`
+        <div class="dci">
+          <div class="dot" style="background:${p.color};width:10px;height:10px"></div>
+          <span>${esc(p.name)}${(gameState.away||{})[p.id]?` <span style="color:#e67e22;font-size:0.75rem">離席中</span>`:""}</span>
+          <div style="display:flex;gap:3px">
+            ${Array.from({length: gameState.settings.drawCount>0 ? gameState.settings.drawCount : (gameState.players.length<=4?3:2)},(_,i)=>i+1).map(n=>`
+              <div class="pip" style="${(gameState.turnCounts[p.id]||0)>=n?`background:${p.color};border-color:transparent`:""}"></div>
+            `).join("")}
+          </div>
+        </div>`).join("")}
+    </div>
+    ${gameState.settings.turnTime > 0 ? `
+      <div id="turn-timer" style="text-align:center;margin-bottom:8px;font-size:1.1rem;font-weight:900;color:var(--accent2)">
+        ⏱ <span id="timer-count">${gameState.settings.turnTime}</span>秒
+      </div>` : ""}
+    <div id="canvas-wrapper"><canvas id="main-canvas"></canvas></div>
+    <p style="color:var(--text-sub);font-size:0.78rem;margin-top:6px;text-align:center">
+      ${isMyTurn ? "マウスまたはタッチで描いてください（離したらターン終了）" : "他の人が描くのを見ていてください"}
+    </p>
+    <div class="color-legend">
+      ${gameState.players.map(p=>`
+        <div class="cli">
+          <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="${p.color}" stroke-width="4" stroke-linecap="round"/></svg>
+          ${esc(p.name)}${p.id===playerId?`<span style="color:var(--text-sub);font-size:0.72rem">（あなた）</span>`:""}
+        </div>`).join("")}
+    </div>`;
+  // レイアウト確定後にキャンバス初期化
+  setTimeout(() => {
+    initCanvas(isMyTurn);
+    // ターンタイマー開始
+    if (gameState.settings.turnTime > 0) startTurnTimer(isMyTurn);
+  }, 80);
+}
+
+let turnTimerInterval = null;
+function startTurnTimer(isMyTurn) {
+  if (turnTimerInterval) clearInterval(turnTimerInterval);
+  const totalTime = gameState.settings.turnTime;
+  let remaining = totalTime;
+  turnTimerInterval = setInterval(async () => {
+    remaining--;
+    const el = document.getElementById("timer-count");
+    if (el) {
+      el.textContent = remaining;
+      el.parentElement.style.color = remaining <= 5 ? "var(--accent)" : "var(--accent2)";
+    }
+    if (remaining <= 0) {
+      clearInterval(turnTimerInterval);
+      // 自分のターンなら強制スキップ
+      if (isMyTurn && gameState.drawOrder[gameState.currentTurnIndex] === playerId) {
+        const state = await fbGet();
+        const turnCounts = { ...state.turnCounts };
+        turnCounts[playerId] = (turnCounts[playerId] || 0) + 1;
+        const maxTurns = state.settings.drawCount > 0 ? state.settings.drawCount : (state.players.length <= 4 ? 3 : 2);
+        const allDone = state.players.every(p => (turnCounts[p.id]||0) >= maxTurns);
+        if (allDone) {
+          await fbUpdate({ turnCounts, phase: "voting" });
+        } else {
+          let next = (state.currentTurnIndex + 1) % state.drawOrder.length;
+          for (let i = 0; i < state.drawOrder.length; i++) {
+            if ((turnCounts[state.drawOrder[next]]||0) < maxTurns) break;
+            next = (next+1) % state.drawOrder.length;
+          }
+          await fbUpdate({ turnCounts, currentTurnIndex: next });
+        }
+      }
+    }
+  }, 1000);
+}
+
+// ===== キャンバス =====
+function initCanvas(isMyTurn) {
+  const wrapper = document.getElementById("canvas-wrapper");
+  mainCanvas = document.getElementById("main-canvas");
+  if (!wrapper||!mainCanvas) return;
+  // レイアウト確定後のサイズを取得
+  const rect = wrapper.getBoundingClientRect();
+  const W = Math.floor(rect.width);
+  const H = Math.floor(rect.height);
+  mainCanvas.width = W;
+  mainCanvas.height = H;
+  mainCanvas.style.width = W + "px";
+  mainCanvas.style.height = H + "px";
+  ctx = mainCanvas.getContext("2d");
+  redrawStrokes();
+  if (!isMyTurn) return;
+
+  const me = gameState.players.find(p=>p.id===playerId);
+  const myColor = me ? me.color : "#E74C3C";
+
+  function getPos(e) {
+    const rect = mainCanvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    // 0~1の比率で保存（デバイス間でキャンバスサイズが違っても正しく描画される）
+    return {
+      x: (src.clientX - rect.left) / rect.width,
+      y: (src.clientY - rect.top) / rect.height
+    };
+  }
+
+  function onStart(e) {
+    e.preventDefault();
+    if (isDrawing) return;
+    // 自分のターンか確認
+    if (gameState.drawOrder[gameState.currentTurnIndex] !== playerId) return;
+    isDrawing = true;
+    localPoints = [];
+    const pt = getPos(e);
+    localPoints.push(pt);
+    // 比率→ピクセルに変換してローカル描画
+    const W = mainCanvas.width, H = mainCanvas.height;
+    ctx.beginPath();
+    ctx.arc(pt.x * W, pt.y * H, 2, 0, Math.PI*2);
+    ctx.fillStyle = myColor;
+    ctx.fill();
+  }
+
+  function onMove(e) {
+    e.preventDefault();
+    if (!isDrawing) return;
+    const pt = getPos(e);
+    const prev = localPoints[localPoints.length-1];
+    localPoints.push(pt);
+    // 比率→ピクセルに変換してローカル描画
+    const W = mainCanvas.width, H = mainCanvas.height;
+    ctx.beginPath();
+    ctx.moveTo(prev.x * W, prev.y * H);
+    ctx.lineTo(pt.x * W, pt.y * H);
+    ctx.strokeStyle = myColor;
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.stroke();
+  }
+
+  async function onEnd(e) {
+    e.preventDefault();
+    if (!isDrawing) return;
+    isDrawing = false;
+
+    if (localPoints.length === 0) return;
+
+    // ストロークをFirebaseに保存
+    const stroke = { playerId, color: myColor, points: localPoints };
+    await fbAddStroke(stroke);
+
+    // ターン進行
+    const state = await fbGet();
+    const turnCounts = { ...state.turnCounts };
+    turnCounts[playerId] = (turnCounts[playerId] || 0) + 1;
+
+    // settings.drawCount が0なら自動（4人以下3回・5人以上2回）
+    const maxTurns = state.settings.drawCount > 0
+      ? state.settings.drawCount
+      : (state.players.length <= 4 ? 3 : 2);
+    const allDone = state.players.every(p => (turnCounts[p.id]||0) >= maxTurns);
+    if (allDone) {
+      await fbUpdate({ turnCounts, phase: "voting" });
+    } else {
+      let next = (state.currentTurnIndex + 1) % state.drawOrder.length;
+      for (let i = 0; i < state.drawOrder.length; i++) {
+        if ((turnCounts[state.drawOrder[next]]||0) < maxTurns) break;
+        next = (next+1) % state.drawOrder.length;
+      }
+      await fbUpdate({ turnCounts, currentTurnIndex: next });
+    }
+    localPoints = [];
+  }
+
+  mainCanvas.addEventListener("mousedown", onStart);
+  mainCanvas.addEventListener("mousemove", onMove);
+  mainCanvas.addEventListener("mouseup", onEnd);
+  mainCanvas.addEventListener("mouseleave", onEnd);
+  mainCanvas.addEventListener("touchstart", onStart, {passive:false});
+  mainCanvas.addEventListener("touchmove", onMove, {passive:false});
+  mainCanvas.addEventListener("touchend", onEnd, {passive:false});
+}
+
+function redrawStrokes() {
+  if (!ctx||!mainCanvas) return;
+  const W = mainCanvas.width, H = mainCanvas.height;
+  ctx.clearRect(0, 0, W, H);
+  gameState.strokes.forEach(s => {
+    if (!s||!s.points) return;
+    const pts = toArr(s.points);
+    if (pts.length < 1) return;
+    ctx.beginPath();
+    if (pts.length === 1) {
+      // 比率→ピクセル変換
+      ctx.arc(pts[0].x * W, pts[0].y * H, 2, 0, Math.PI*2);
+      ctx.fillStyle = s.color; ctx.fill(); return;
+    }
+    ctx.moveTo(pts[0].x * W, pts[0].y * H);
+    for (let i=1; i<pts.length; i++) ctx.lineTo(pts[i].x * W, pts[i].y * H);
+    ctx.strokeStyle = s.color; ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.stroke();
+  });
+}
+
+// ===== 投票 =====
+function renderVoting(app) {
+  // 常にFirebaseのvotesを正として判定（ローカル変数に依存しない）
+  const votes = gameState.votes || {};
+  const myVoted = !!votes[playerId];
+  const voteCount = Object.keys(votes).length;
+
+  app.innerHTML = `
+    <div class="card">
+      <h2>🗳 投票タイム</h2>
+      <p style="color:var(--text-sub);margin-bottom:8px;font-size:0.9rem">ニセ絵師だと思う人に投票してください</p>
+      <div class="theme-badge">📂 テーマ：${esc(gameState.theme)}</div>
+      ${myVoted
+        ? `<p class="waiting" style="margin-top:12px">投票済み（${voteCount}/${gameState.players.length}人）</p>`
+        : `<div class="vote-grid" id="vote-grid">
+            ${gameState.players.filter(p=>p.id!==playerId).map(p=>`
+              <button class="vote-btn" data-target="${p.id}" onclick="doVote('${p.id}')">
+                <div class="vote-dot" style="background:${p.color}"></div>${esc(p.name)}
+              </button>`).join("")}
+          </div>`}
+      <div style="margin-top:16px">
+        <div class="label">完成した絵</div>
+        <div id="canvas-wrapper" style="cursor:default"><canvas id="main-canvas"></canvas></div>
+        <div class="color-legend">
+          ${gameState.players.map(p=>`
+            <div class="cli">
+              <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="${p.color}" stroke-width="4" stroke-linecap="round"/></svg>
+              ${esc(p.name)}${p.id===playerId?`<span style="color:var(--text-sub);font-size:0.72rem">（あなた）</span>`:""}
+            </div>`).join("")}
+        </div>
+      </div>
+    </div>`;
+  setTimeout(() => {
+    const w = document.getElementById("canvas-wrapper");
+    mainCanvas = document.getElementById("main-canvas");
+    if (!w||!mainCanvas) return;
+    const rect = w.getBoundingClientRect();
+    mainCanvas.width = rect.width;
+    mainCanvas.height = rect.height;
+    mainCanvas.style.width = rect.width + "px";
+    mainCanvas.style.height = rect.height + "px";
+    ctx = mainCanvas.getContext("2d"); redrawStrokes();
+  }, 80);
+}
+
+window.doVote = async function(targetId) {
+  // Firebase側を再確認してから投票（二重投票防止）
+  const state = await fbGet();
+  if (state.votes && state.votes[playerId]) return; // すでに投票済み
+  const votes = { ...(state.votes||{}), [playerId]: targetId };
+  const allVoted = state.players.every(p => votes[p.id]);
+  if (allVoted) {
+    await fbUpdate({ votes, voteResult: tallyVotes(votes, state.players, state.roles), phase: "result" });
+  } else {
+    await fbUpdate({ votes });
+  }
+};
+
+// ===== 結果 =====
+function renderResult(app) {
+  const vr = gameState.voteResult; if (!vr) return;
+  const fakeP = gameState.players.find(p=>p.id===vr.fakeId);
+  const iAmFake = gameState.roles[playerId] === "fake";
+  const maxC = Math.max(...Object.values(vr.counts||{}), 1);
+  const judgeId = gameState.judgeId;
+  const iAmJudge = playerId === judgeId;
+  const judgeName = gameState.players.find(p=>p.id===judgeId)?.name || "？";
+  const isHost = gameState.players[0]?.id === playerId;
+  app.innerHTML = `
+    <div class="card">
+      <h2>📊 投票結果</h2>
+      <div style="margin-bottom:16px">
+        ${gameState.players.map(p => {
+          const c = (vr.counts||{})[p.id]||0, top = (vr.topIds||[]).includes(p.id);
+          return `<div class="result-row">
+            <div style="display:flex;align-items:center;gap:8px;min-width:90px"><div class="dot" style="background:${p.color}"></div><span style="font-weight:700">${esc(p.name)}</span></div>
+            <div style="flex:1;margin:0 10px"><div class="vote-bar" style="width:${(c/maxC)*100}%;background:${top?"var(--accent)":"rgba(255,255,255,0.1)"}"></div></div>
+            <span style="font-weight:900;color:${top?"var(--accent)":"var(--text)"};min-width:24px;text-align:right">${c}票</span>
+          </div>`;
+        }).join("")}
+      </div>
+      ${vr.fakeIsTop ? `
+        <div style="background:rgba(233,69,96,0.1);border:2px solid var(--accent);border-radius:12px;padding:14px;margin-bottom:14px;text-align:center">
+          <div style="font-size:1.1rem;font-weight:900;color:var(--accent)">🎯 ニセ絵師（${esc(fakeP?.name||"？")}）が最多票！お題を当てると逆転…</div>
+        </div>
+        ${gameState.fakeGuess !== null && gameState.fakeGuess !== undefined ? `
+          <!-- ニセが回答済み → 判定者が判定 -->
+          <div style="background:rgba(245,166,35,0.1);border:2px solid var(--accent2);border-radius:12px;padding:14px;margin-bottom:14px;text-align:center">
+            <div class="label" style="margin-bottom:4px">ニセ絵師の回答</div>
+            <div style="font-size:1.4rem;font-weight:900;color:var(--accent2)">「${esc(gameState.fakeGuess)}」</div>
+          </div>
+          ${iAmJudge ? `
+            <div style="background:rgba(46,204,113,0.1);border:2px solid #2ecc71;border-radius:12px;padding:14px;margin-bottom:12px;text-align:center">
+              <div style="font-weight:900;color:#2ecc71">あなたが判定者です！</div>
+            </div>
+            <div style="color:var(--text-sub);font-size:0.85rem;margin-bottom:12px">お題は「<span style="color:var(--accent);font-weight:900">${esc(gameState.topic)}</span>」です</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-success" onclick="doJudge(true)" style="background:#2ecc71">⭕ 正解！（ニセ絵師の逆転勝ち）</button>
+              <button class="btn btn-primary" onclick="doJudge(false)">✕ 不正解（本物の絵師の勝ち）</button>
+            </div>`
+          : `<p class="waiting">判定者（${esc(judgeName)}）が正誤を判定中…</p>`}
+        ` : iAmFake ? `
+          <!-- ニセが未回答 → 回答入力フォーム -->
+          <div style="background:rgba(245,166,35,0.1);border:2px solid var(--accent2);border-radius:12px;padding:14px;margin-bottom:14px">
+            <div class="label" style="margin-bottom:6px">お題を入力してください</div>
+            <div style="color:var(--text-sub);font-size:0.85rem;margin-bottom:10px">回答は全員に共有され、判定者（${esc(judgeName)}）が正誤を判定します</div>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="guess-input" placeholder="お題を入力" maxlength="20">
+              <button class="btn btn-warning" onclick="doSubmitGuess()" style="white-space:nowrap">回答する</button>
+            </div>
+          </div>`
+          : `<p class="waiting">ニセ絵師（${esc(fakeP?.name||"？")}）が回答を入力中…</p>`}
+      ` : `
+        <div style="background:rgba(155,89,182,0.1);border:2px solid #9b59b6;border-radius:12px;padding:14px;margin-bottom:14px;text-align:center">
+          <div style="font-size:1.1rem;font-weight:900;color:#9b59b6">🕵️ ニセ絵師がバレなかった！</div>
+        </div>
+        ${isHost ? `<button class="btn btn-secondary" onclick="doFakeWins()">ニセ絵師の勝ちを確定する</button>` : `<p class="waiting">結果確定待ち…</p>`}
+      `}
+    </div>`;
+}
+
+// ニセが回答を送信（Firebaseに保存・全員に共有）
+window.doSubmitGuess = async function() {
+  const input = document.getElementById("guess-input");
+  if (!input || !input.value.trim()) { showToast("お題を入力してください"); return; }
+  const guess = input.value.trim();
+  // fakeGuessを保存するとonValueが発火して全員の画面が更新される
+  await fbUpdate({ fakeGuess: guess, phase: "result" });
+};
+
+window.doJudge = async function(correct) {
+  const state = await fbGet();
+  const fakeId = Object.keys(state.roles).find(id=>state.roles[id]==="fake");
+  const players = state.players.map(p => {
+    if (correct && p.id===fakeId) return {...p, score:(p.score||0)+2};
+    if (!correct && state.roles[p.id]==="real") return {...p, score:(p.score||0)+1};
+    return p;
+  });
+  await fbUpdate({ fakeGuessCorrect:correct, phase:"final", players });
+};
+
+window.doFakeWins = async function() {
+  const state = await fbGet();
+  const fakeId = Object.keys(state.roles).find(id=>state.roles[id]==="fake");
+  const players = state.players.map(p => p.id===fakeId ? {...p,score:(p.score||0)+2} : p);
+  await fbUpdate({ phase:"final", players });
+};
+
+// ===== 最終結果 =====
+function renderFinal(app) {
+  const vr = gameState.voteResult;
+  const fakeP = gameState.players.find(p=>p.id===vr?.fakeId);
+  let out = "";
+  if (vr?.fakeIsTop) {
+    out = gameState.fakeGuessCorrect
+      ? `<div style="text-align:center;margin-bottom:20px"><div style="font-size:3rem">🎉</div><div style="font-size:1.3rem;font-weight:900;color:#9b59b6;margin-top:8px">ニセ絵師の逆転勝利！</div><div style="color:var(--text-sub);margin-top:4px">お題「${esc(gameState.topic)}」を当てました！</div></div>`
+      : `<div style="text-align:center;margin-bottom:20px"><div style="font-size:3rem">🎨</div><div style="font-size:1.3rem;font-weight:900;color:#2ecc71;margin-top:8px">本物の絵師の勝利！</div><div style="color:var(--text-sub);margin-top:4px">お題は「${esc(gameState.topic)}」でした</div></div>`;
+  } else {
+    out = `<div style="text-align:center;margin-bottom:20px"><div style="font-size:3rem">🕵️</div><div style="font-size:1.3rem;font-weight:900;color:#9b59b6;margin-top:8px">ニセ絵師の勝利！</div><div style="color:var(--text-sub);margin-top:4px">エセは${esc(fakeP?.name||"？")}でした！お題は「${esc(gameState.topic)}」</div></div>`;
+  }
+  const isHost = gameState.players[0]?.id === playerId;
+  app.innerHTML = `
+    <div class="card">
+      <h2>🏆 ラウンド終了</h2>
+      ${out}
+      <div style="margin-bottom:20px">
+        <div class="label" style="margin-bottom:8px">完成した絵</div>
+        <div id="canvas-wrapper" style="cursor:default"><canvas id="main-canvas"></canvas></div>
+        <div class="color-legend" style="margin-top:8px">
+          ${gameState.players.map(p=>`
+            <div class="cli">
+              <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="${p.color}" stroke-width="4" stroke-linecap="round"/></svg>
+              ${esc(p.name)}${p.id===playerId?`<span style="color:var(--text-sub);font-size:0.72rem">（あなた）</span>`:""}
+            </div>`).join("")}
+        </div>
+      </div>
+      ${scoreCard()}
+      <div style="margin-top:18px">
+        ${isHost
+          ? `<button class="btn btn-primary" onclick="doNextRound()">次のラウンドへ →</button>`
+          : `<p class="waiting">ホストが次のラウンドを始めるのを待っています…</p>`}
+      </div>
+    </div>`;
+  setTimeout(() => {
+    const w = document.getElementById("canvas-wrapper");
+    mainCanvas = document.getElementById("main-canvas");
+    if (!w||!mainCanvas) return;
+    const rect = w.getBoundingClientRect();
+    mainCanvas.width = rect.width;
+    mainCanvas.height = rect.height;
+    mainCanvas.style.width = rect.width + "px";
+    mainCanvas.style.height = rect.height + "px";
+    ctx = mainCanvas.getContext("2d");
+    redrawStrokes();
+  }, 80);
+}
+
+// ===== ゲーム終了 =====
+// ===== 手動退出 =====
+window.doLeave = async function() {
+  if (!confirm("退出しますか？")) return;
+  clearInterval(heartbeatTimer);
+  await removePlayer(playerId);
+  await update(ref(db, `${ROOM}/presence`), { [playerId]: null });
+  await update(ref(db, `${ROOM}/away`), { [playerId]: null });
+  // ローカルをリセットして入室画面に戻る
+  playerName = "";
+  listening = false;
+  location.reload();
+};
+
+window.doEndGame = async function() {
+  await fbUpdate({ phase: "end" });
+};
+
+window.doNextRound = async function() {
+  myVote = null;
+  lastNotifiedTurnIndex = -1; // ターン通知をリセット
+  const state = await fbGet();
+  // ラウンド数制限チェック
+  if (state.settings.totalRounds > 0 && state.round >= state.settings.totalRounds) {
+    await fbUpdate({ phase: "end" });
+    return;
+  }
+  // votesを完全に削除してからロビーに戻る
+  await set(ref(db, `${ROOM}/state/votes`), null);
+  await set(ref(db, `${ROOM}/state/voteResult`), null);
+  await set(ref(db, `${ROOM}/state/strokes`), null);
+  await set(ref(db, `${ROOM}/state/roles`), null);
+  await set(ref(db, `${ROOM}/state/judgeId`), null);
+  await set(ref(db, `${ROOM}/state/drawOrder`), null);
+  await set(ref(db, `${ROOM}/state/turnCounts`), null);
+  await set(ref(db, `${ROOM}/state/fakeGuess`), null);
+  await set(ref(db, `${ROOM}/state/fakeGuessCorrect`), null);
+  await set(ref(db, `${ROOM}/state/away`), null);
+  await fbUpdate({ phase: "lobby", theme: "", topic: "", currentTurnIndex: 0 });
+};
+
+// ===== スコア =====
+function scoreCard() {
+  const sorted = [...gameState.players].sort((a,b)=>(b.score||0)-(a.score||0));
+  return `<div><div class="label" style="margin-bottom:6px">スコア</div>${sorted.map((p,i)=>`
+    <div class="score-row">
+      <span style="color:var(--text-sub);font-size:0.85rem;min-width:18px">${i+1}</span>
+      <div class="dot" style="background:${p.color}"></div>
+      <span style="flex:1;font-weight:700">${esc(p.name)}${p.id===playerId?" <span style='color:var(--text-sub);font-size:0.75rem'>（あなた）</span>":""}</span>
+      <span style="font-size:1.2rem;font-weight:900;color:var(--accent2)">${p.score||0}</span>
+    </div>`).join("")}</div>`;
+}
+
+// ===== ゲーム終了画面 =====
+function renderEnd(app) {
+  const sorted = [...gameState.players].sort((a,b)=>(b.score||0)-(a.score||0));
+  const winner = sorted[0];
+  const isHost = gameState.players[0]?.id === playerId;
+  const medals = ["🥇","🥈","🥉"];
+  app.innerHTML = `
+    <div class="card" style="text-align:center">
+      <div style="font-size:3rem">🏆</div>
+      <h2 style="font-size:1.4rem;color:var(--accent2);margin-top:8px;justify-content:center">ゲーム終了！</h2>
+      <div style="color:var(--text-sub);margin-bottom:20px">お疲れ様でした！</div>
+      <div style="margin-bottom:24px">
+        <div class="label" style="margin-bottom:10px">最終スコア</div>
+        ${sorted.map((p,i)=>`
+          <div class="score-row" style="${i===0?"border:2px solid var(--accent2);":""};margin-bottom:8px">
+            <span style="font-size:1.2rem;min-width:28px">${medals[i]||""}</span>
+            <div class="dot" style="background:${p.color}"></div>
+            <span style="flex:1;font-weight:700;text-align:left">${esc(p.name)}${p.id===playerId?" <span style='color:var(--text-sub);font-size:0.75rem'>（あなた）</span>":""}</span>
+            <span style="font-size:1.3rem;font-weight:900;color:var(--accent2)">${p.score||0}</span>
+          </div>`).join("")}
+      </div>
+      <div style="background:rgba(245,166,35,0.1);border:2px solid var(--accent2);border-radius:12px;padding:16px;margin-bottom:20px">
+        <div style="font-size:1rem;color:var(--text-sub)">優勝</div>
+        <div style="font-size:1.5rem;font-weight:900;color:var(--accent2);margin-top:4px">
+          <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${winner?.color};margin-right:8px;vertical-align:middle"></span>
+          ${esc(winner?.name||"？")}さん！
+        </div>
+      </div>
+      ${isHost ? `<button class="btn btn-primary" onclick="doRestart()">🔄 もう一度遊ぶ</button>` : `<p class="waiting">ホストがゲームをリセットするのを待っています…</p>`}
+    </div>`;
+}
+
+window.doRestart = async function() {
+  myVote = null;
+  // スコアをリセットしてロビーへ
+  const state = await fbGet();
+  const players = state.players.map(p=>({...p, score:0}));
+  await fbUpdate({
+    phase:"lobby", theme:"", topic:"", roles:{},
+    drawOrder:[], currentTurnIndex:0, turnCounts:{},
+    strokes:null, votes:null, voteResult:null,
+    fakeGuess:null, fakeGuessCorrect:null, round:0,
+    players,
+  });
+};
+
+// ===== 役割オーバーレイ =====
+function showRoleOverlay() {
+  if (roleShown||!gameState) return; roleShown = true;
+  const role = gameState.roles[playerId]; if (!role) return;
+  const isFake = role === "fake";
+  document.getElementById("role-card-content").innerHTML = `
+    <div style="margin-bottom:14px"><div style="font-size:3rem">${isFake?"🕵️":"🎨"}</div>
+    <div style="font-size:1.5rem;font-weight:900;color:${isFake?"#9b59b6":"#2ecc71"};margin-top:8px">${isFake?"ニセ絵師":"本物の絵師"}</div></div>
+    <div style="margin-bottom:12px"><div class="label">テーマ</div><div class="theme-badge" style="justify-content:center">📂 ${esc(gameState.theme)}</div></div>
+    <div><div class="label">お題</div><div class="${isFake?"fake-badge":"topic-badge"}" style="justify-content:center">${isFake?"✗（わかりません）":esc(gameState.topic)}</div></div>
+    ${isFake?`<div style="margin-top:12px;color:#a0a8c0;font-size:0.82rem">テーマだけ手がかりにして上手く描いてバレないように！</div>`:""}`;
+  document.getElementById("role-overlay").classList.add("show");
+}
+window.closeRoleOverlay = function() { document.getElementById("role-overlay").classList.remove("show"); };
+
+// ===== ユーティリティ =====
+function shuffle(a) {
+  const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b;
+}
+function tallyVotes(votes, players, roles) {
+  const counts = {};
+  players.forEach(p=>{counts[p.id]=0;});
+  Object.values(votes).forEach(t=>{if(counts[t]!==undefined)counts[t]++;});
+  const max = Math.max(...Object.values(counts));
+  const topIds = Object.keys(counts).filter(id=>counts[id]===max);
+  const fakeId = Object.keys(roles).find(id=>roles[id]==="fake");
+  return { counts, maxVotes:max, topIds, fakeId, fakeIsTop:topIds.includes(fakeId) };
+}
+function esc(s) {
+  return String(s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById("toast"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>el.classList.remove("show"), 3000);
+}
+
+document.getElementById("name-input").addEventListener("keydown", e => { if(e.key==="Enter") window.joinGame(); });
+</script>
+</body>
+</html>
