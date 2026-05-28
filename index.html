@@ -295,46 +295,51 @@ async function sendHeartbeat() {
   });
 }
 
-// ハートビートを監視して離席・退出を判定
+// ハートビートを監視して離席・退出・ルーム解散を判定
+const ROOM_IDLE_TIMEOUT = 90 * 1000; // 全員90秒無反応でルーム解散
+
 function startPresenceWatch() {
-  const ROOM_IDLE_TIMEOUT = 90 * 1000; // 全員90秒無反応でルーム解散
+  // setIntervalで定期チェック（onValueだと放置中に発火しないため）
+  setInterval(checkPresence, 30 * 1000); // 30秒ごとにチェック
+  checkPresence(); // 即時1回実行
+}
 
-  onValue(ref(db, `${ROOM}/presence`), async snap => {
-    const presence = snap.val() || {};
-    const now = Date.now();
-    const state = await fbGet();
+async function checkPresence() {
+  const snap = await get(ref(db, `${ROOM}/presence`));
+  const presence = snap.val() || {};
+  const now = Date.now();
+  const state = await fbGet();
 
-    // 全員が無反応かチェック → ルーム自動解散
-    if (Object.keys(presence).length > 0) {
-      const allIdle = Object.values(presence).every(p => (now - (p.lastSeen||0)) > ROOM_IDLE_TIMEOUT);
-      if (allIdle) {
-        await dissolveRoom();
-        playerName = "";
-        listening = false;
-        location.reload();
-        return;
+  // 全員が無反応 → ルーム自動解散
+  if (Object.keys(presence).length > 0) {
+    const allIdle = Object.values(presence).every(p => (now - (p.lastSeen||0)) > ROOM_IDLE_TIMEOUT);
+    if (allIdle) {
+      await dissolveRoom();
+      playerName = "";
+      listening = false;
+      location.reload();
+      return;
+    }
+  }
+
+  for (const pid of Object.keys(presence)) {
+    const lastSeen = presence[pid].lastSeen || 0;
+    const elapsed = now - lastSeen;
+
+    if (state.phase === "lobby") {
+      // ロビー中：1時間で自動退出
+      if (elapsed > LOBBY_TIMEOUT) {
+        await removePlayer(pid);
+        await update(ref(db, `${ROOM}/presence`), { [pid]: null });
+      }
+    } else {
+      // ゲーム中：settings.awayTimeoutがONのとき90秒で離席マーク
+      if (state.settings && state.settings.awayTimeout) {
+        const isAway = elapsed > GAME_TIMEOUT;
+        await update(ref(db, `${ROOM}/away`), { [pid]: isAway || null });
       }
     }
-
-    for (const pid of Object.keys(presence)) {
-      const lastSeen = presence[pid].lastSeen || 0;
-      const elapsed = now - lastSeen;
-
-      if (state.phase === "lobby") {
-        // ロビー中：1時間で自動退出
-        if (elapsed > LOBBY_TIMEOUT) {
-          await removePlayer(pid);
-          await update(ref(db, `${ROOM}/presence`), { [pid]: null });
-        }
-      } else {
-        // ゲーム中：settings.awayTimeoutがONのとき90秒で離席マーク
-        if (state.settings.awayTimeout) {
-          const isAway = elapsed > GAME_TIMEOUT;
-          await update(ref(db, `${ROOM}/away`), { [pid]: isAway || null });
-        }
-      }
-    }
-  });
+  }
 }
 
 // ===== ルーム解散 =====
@@ -508,12 +513,13 @@ function renderLobby(app) {
         ${players.map(p=>`<div class="player-chip"><div class="dot" style="background:${p.color}"></div>${esc(p.name)}${p.id===playerId?" <span style='color:var(--text-sub);font-size:0.75rem'>（あなた）</span>":""}</div>`).join("") || "<span style='color:var(--text-sub)'>まだ誰もいません</span>"}
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
-        ${isHost ? `
-          <button class="btn btn-primary" ${canStart?"":"disabled"} onclick="doStartGame()">🎮 ゲーム開始${canStart?"":"（3人以上必要）"}</button>
-          ${gameState.round > 0 ? `<button class="btn btn-secondary" onclick="doEndGame()">🏁 ゲーム終了</button>` : ""}
-        ` : `<p class="waiting" style="padding:0">ホスト（${esc(players[0]?.name||"？")}）がゲームを開始するのを待っています…</p>`}
+        ${isHost
+          ? '<button class="btn btn-primary" ' + (canStart?'':'disabled') + ' onclick="doStartGame()">🎮 ゲーム開始' + (canStart?'':'（3人以上必要）') + '</button>'
+            + (gameState.round > 0 ? '<button class="btn btn-secondary" onclick="doEndGame()">🏁 ゲーム終了</button>' : '')
+          : '<p class="waiting" style="padding:0">ホスト（' + esc(players[0]?.name||'？') + '）がゲームを開始するのを待っています…</p>'
+        }
         <button class="btn" style="background:rgba(255,255,255,0.08);color:var(--text-sub)" onclick="doLeave()">🚪 退出する</button>
-        ${isHost ? `<button class="btn" style="background:rgba(233,69,96,0.15);color:var(--accent);border:1px solid var(--accent)" onclick="doDissolveRoom()">💥 ルームを解散する</button>` : ""}
+        ${isHost ? '<button class="btn" style="background:rgba(233,69,96,0.15);color:var(--accent);border:1px solid var(--accent)" onclick="doDissolveRoom()">💥 ルームを解散する</button>' : ''}
       </div>
     </div>
 
