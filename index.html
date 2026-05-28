@@ -59,6 +59,7 @@
 <header>
   <h1>🎨 ニセ絵師を探せ</h1>
   <span id="round-badge" class="round-badge"></span>
+  <button id="header-dissolve-btn" onclick="doDissolveRoom()" style="display:none;margin-left:8px;padding:6px 14px;border-radius:10px;border:1px solid var(--accent);background:rgba(233,69,96,0.15);color:var(--accent);font-family:inherit;font-size:0.8rem;font-weight:700;cursor:pointer">💥 解散</button>
 </header>
 <div id="role-overlay">
   <h2 style="color:var(--accent2);font-weight:900;">あなたの役割</h2>
@@ -487,6 +488,12 @@ function renderApp() {
       clearInterval(turnTimerInterval);
       turnTimerInterval = null;
     }
+  }
+  // ヘッダーの解散ボタン：ホストのみ表示
+  const dissolveBtn = document.getElementById("header-dissolve-btn");
+  if (dissolveBtn) {
+    const isHost = gameState.players && gameState.players.length > 0 && gameState.players[0].id === playerId;
+    dissolveBtn.style.display = isHost ? "inline-block" : "none";
   }
   switch (gameState.phase) {
     case "lobby":   renderLobby(app); break;
