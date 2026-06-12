@@ -105,6 +105,12 @@ const TOPICS = {
 const COLORS = ["#E74C3C","#3498DB","#2ECC71","#F39C12","#9B59B6","#1ABC9C","#E67E22","#E91E90","#00BCD4","#8BC34A"];
 const ALL_CATS = Object.keys(TOPICS);
 
+const DIFFICULTY = {
+  easy:   { label:"⭐ かんたん",   cats:["動物","食べ物","乗り物","日用品"] },
+  normal: { label:"⭐⭐ ふつう",    cats:["動物","食べ物","乗り物","日用品","建物・場所","スポーツ","昆虫・小動物","海の生き物"] },
+  hard:   { label:"⭐⭐⭐ むずかしい", cats:null }, // null=全カテゴリ
+};
+
 // ===== ローカル状態 =====
 let playerId = localStorage.getItem("fa_pid") || ("p_" + Math.random().toString(36).slice(2,10));
 localStorage.setItem("fa_pid", playerId);
@@ -165,6 +171,7 @@ function normalize(val) {
       totalRounds:  s.settings?.totalRounds  || 0,
       categories:   s.settings?.categories   || [],
       fakeCount:    s.settings?.fakeCount    || 1,
+      difficulty:   s.settings?.difficulty   || "normal",
     },
   };
 }
@@ -427,6 +434,19 @@ function renderLobby() {
 function renderSettings(s) {
   const cats = s.categories&&s.categories.length>0?s.categories:[];
   return `<div class="settings-grid">
+    <div class="setting-row">
+      <div class="label">🎯 お題の難易度</div>
+      <div class="setting-btns">
+        ${Object.entries(DIFFICULTY).map(([key,d])=>`
+          <button class="btn btn-sm ${s.difficulty===key?"btn-primary":"btn-secondary"}" onclick="doSetDifficulty('${key}')">${d.label}</button>
+        `).join("")}
+      </div>
+      <div style="color:var(--text-sub);font-size:0.75rem;margin-top:2px">
+        かんたん：動物・食べ物・乗り物・日用品 ／
+        ふつう：＋建物・スポーツ・昆虫・海の生き物 ／
+        むずかしい：全カテゴリ
+      </div>
+    </div>
     <div class="setting-row"><div class="label">🕒 離席タイムアウト（90秒）</div><div class="setting-btns">
       <button class="btn btn-sm ${s.awayTimeout?"btn-primary":"btn-secondary"}" onclick="doSetting('awayTimeout',true)">ON</button>
       <button class="btn btn-sm ${!s.awayTimeout?"btn-primary":"btn-secondary"}" onclick="doSetting('awayTimeout',false)">OFF</button>
@@ -454,7 +474,9 @@ function renderSettings(s) {
 
 function renderSettingsReadonly(s) {
   const cats = s.categories&&s.categories.length>0?s.categories.join("・"):"全カテゴリ";
+  const diffLabel = DIFFICULTY[s.difficulty]?.label || "⭐⭐ ふつう";
   return `<div style="display:flex;flex-direction:column;gap:6px;font-size:0.88rem;color:var(--text-sub)">
+    <div>🎯 難易度：<b style="color:var(--text)">${diffLabel}</b></div>
     <div>🕒 離席タイムアウト：<b style="color:var(--text)">${s.awayTimeout?"ON":"OFF"}</b></div>
     <div>✏️ 描画回数：<b style="color:var(--text)">${s.drawCount===0?"自動":s.drawCount+"回"}</b></div>
     <div>⏱ 時間制限：<b style="color:var(--text)">${s.turnTime===0?"なし":s.turnTime+"秒"}</b></div>
@@ -466,6 +488,16 @@ function renderSettingsReadonly(s) {
 
 window.doSetting = async function(key, value) {
   await update(ref(db, `rooms/${currentRoom}/state/settings`), { [key]: value });
+};
+
+// 難易度選択：カテゴリを自動セット
+window.doSetDifficulty = async function(level) {
+  const d = DIFFICULTY[level];
+  const categories = d.cats ? d.cats : null; // null=全カテゴリ
+  await update(ref(db, `rooms/${currentRoom}/state/settings`), {
+    difficulty: level,
+    categories: categories,
+  });
 };
 window.doToggleCategory = async function(cat) {
   const state = await fbGet();
@@ -481,7 +513,15 @@ window.doStartGame = async function() {
   const state = await fbGet();
   if (state.players.length<3) return;
   const s = state.settings;
-  const useCats = (s.categories&&s.categories.length>0)?s.categories.filter(c=>TOPICS[c]):Object.keys(TOPICS);
+  // 難易度に応じてカテゴリを決定（個別設定が優先、未設定なら難易度から自動取得）
+  let useCats;
+  if (s.categories&&s.categories.length>0) {
+    useCats = s.categories.filter(c=>TOPICS[c]);
+  } else if (s.difficulty && DIFFICULTY[s.difficulty]?.cats) {
+    useCats = DIFFICULTY[s.difficulty].cats.filter(c=>TOPICS[c]);
+  } else {
+    useCats = Object.keys(TOPICS);
+  }
   const theme = useCats[Math.floor(Math.random()*useCats.length)];
   const topic = TOPICS[theme][Math.floor(Math.random()*TOPICS[theme].length)];
   const fakeCount = Math.min(s.fakeCount||1, state.players.length-2);
@@ -838,7 +878,10 @@ window.doNextRound = async function() {
   await set(roomRef("state/fakeGuessCorrect"),null); await set(roomRef("state/away"),null);
   if(state.settings.totalRounds>0){
     const s=state.settings;
-    const useCats=(s.categories&&s.categories.length>0)?s.categories.filter(c=>TOPICS[c]):Object.keys(TOPICS);
+    let useCats;
+    if(s.categories&&s.categories.length>0){useCats=s.categories.filter(c=>TOPICS[c]);}
+    else if(s.difficulty&&DIFFICULTY[s.difficulty]?.cats){useCats=DIFFICULTY[s.difficulty].cats.filter(c=>TOPICS[c]);}
+    else{useCats=Object.keys(TOPICS);}
     const theme=useCats[Math.floor(Math.random()*useCats.length)];
     const topic=TOPICS[theme][Math.floor(Math.random()*TOPICS[theme].length)];
     const fakeCount=Math.min(s.fakeCount||1,state.players.length-2);
